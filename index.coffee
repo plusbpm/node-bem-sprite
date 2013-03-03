@@ -43,6 +43,35 @@ createSprites = (options = {}, cb = ->) ->
       result[s.name] = s for s in sprites
       cb null, result
 
+createBlocks = (options = {}, cb = ->) ->
+  if typeof options is 'function'
+    cb = options
+    options = {}
+
+  padding = options.padding || 2
+  path = options.path || './images'
+  output_path = options.output || './public/img/sprites'
+
+  result_sprite_dir = 'result_sprite'
+  tmp_dir = output_path + "/" + result_sprite_dir
+
+  fs.mkdirSync tmp_dir, '755'
+  topdirs = fs.readdirSync path
+  topdirs.forEach (topdir)->
+    stat = fs.statSync "#{path}/#{topdir}"
+    if(stat.isDirectory())
+      files = fs.readdirSync "#{path}/#{topdir}"
+      files = files.filter (file) -> file.match /\.(png|gif|jpg|jpeg)$/
+      files.forEach (f) -> 
+        fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{f}")
+
+  map = new mapper.HorizontalMapper padding
+  sprite = new Sprite result_sprite_dir, output_path, map, false
+  sprite.load (err) ->
+    sprite.write (err) ->
+      fse.removeSync tmp_dir
+      cb null, sprite
+
 stylus = (options = {}, cb = ->) ->
   stylus = require 'stylus'
   nodes = stylus.nodes

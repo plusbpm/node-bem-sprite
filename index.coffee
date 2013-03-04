@@ -1,6 +1,7 @@
 Sprite = require './lib/sprite'
 mapper = require './lib/mapper'
 fs = require 'fs'
+fse = require 'fs-extra'
 Seq = require "seq"
 { EventEmitter } = require "events"
 
@@ -44,6 +45,8 @@ createSprites = (options = {}, cb = ->) ->
       cb null, result
 
 createBlocks = (options = {}, cb = ->) ->
+  bwatch = require 'watch'
+
   if typeof options is 'function'
     cb = options
     options = {}
@@ -55,7 +58,9 @@ createBlocks = (options = {}, cb = ->) ->
   result_sprite_dir = 'result_sprite'
   tmp_dir = output_path + "/" + result_sprite_dir
 
-  fs.mkdirSync tmp_dir, '755'
+  fse.removeSync tmp_dir
+  fse.mkdirsSync tmp_dir, '755'
+
   topdirs = fs.readdirSync path
   topdirs.forEach (topdir)->
     stat = fs.statSync "#{path}/#{topdir}"
@@ -66,10 +71,28 @@ createBlocks = (options = {}, cb = ->) ->
         fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{f}")
 
   map = new mapper.HorizontalMapper padding
-  sprite = new Sprite result_sprite_dir, output_path, map, false
+  sprite = new Sprite result_sprite_dir, output_path, map, options.watch
   sprite.load (err) ->
     sprite.write (err) ->
-      fse.removeSync tmp_dir
+      # fse.removeSync tmp_dir
+      console?.log("sprite created")
+      if options.watch
+        bwatch.createMonitor "/home/paul/root/nsd.dev/public_html/public/img/block",
+          interval: 500,
+          # filter : (name) ->
+          #   (name.match /\.(png|gif|jpg|jpeg)$/ ? true : false)
+          (m) =>
+            opts = options
+            opts.watch = false
+            m.on "created", =>
+              console?.log("created")
+              createBlocks(opts)
+            m.on "changed", => 
+              console?.log("changed")
+              createBlocks(opts)
+            m.on "removed", => 
+              console?.log("removed")
+              createBlocks(opts)
       cb null, sprite
 
 stylus = (options = {}, cb = ->) ->
@@ -135,5 +158,6 @@ stylus = (options = {}, cb = ->) ->
 
 module.exports =
   sprite: createSprite,
-  sprites: createSprites
+  sprites: createSprites,
+  blocks : createBlocks,
   stylus: stylus

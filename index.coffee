@@ -54,6 +54,7 @@ createBlocks = (options = {}, cb = ->) ->
   padding = options.padding || 2
   path = options.path || './public/img/block'
   output_path = options.output || './public/img/sprites'
+  
 
   result_sprite_dir = 'global_block_sprite'
   tmp_dir = output_path + "/" + result_sprite_dir
@@ -82,8 +83,10 @@ createBlocks = (options = {}, cb = ->) ->
               collectBlocks(path, tmp_dir)
               sprite.load (err) => sprite.write  (err) => console.log "blocks sprite recreated", err
       cb null, sprite
+  # stylusBlocks options, (err) => console.log "blocks stylus created"
 
 collectBlocks = (path, tmp_dir) ->
+
   fse.removeSync tmp_dir
   fse.mkdirsSync tmp_dir, '755'
 
@@ -92,10 +95,19 @@ collectBlocks = (path, tmp_dir) ->
     stat = fs.statSync "#{path}/#{topdir}"
     if(stat.isDirectory())
       files = fs.readdirSync "#{path}/#{topdir}"
-      files = files.filter (file) -> file.match /\.(png|gif|jpg|jpeg)$/
-      files.forEach (f) -> 
-        fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{f}")
-  
+      ifiles = files.filter (file) -> file.match /\.(png|gif|jpg|jpeg)$/
+      ifiles.forEach (f) -> 
+        fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{topdir}_#{f}")
+
+stylusBlocks = (options = {}, cb = ->) =>
+  stylus = require 'stylus'
+
+  if typeof options is 'function'
+    cb = options
+    options = {}
+
+  stylus_path = options.stylus_path || './assets/block'
+
 
 stylus = (options = {}, cb = ->) ->
   stylus = require 'stylus'

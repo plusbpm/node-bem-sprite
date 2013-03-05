@@ -52,12 +52,38 @@ createBlocks = (options = {}, cb = ->) ->
     options = {}
 
   padding = options.padding || 2
-  path = options.path || './images'
+  path = options.path || './public/img/block'
   output_path = options.output || './public/img/sprites'
 
-  result_sprite_dir = 'result_sprite'
+  result_sprite_dir = 'global_block_sprite'
   tmp_dir = output_path + "/" + result_sprite_dir
 
+  collectBlocks(path, tmp_dir)
+
+  map = new mapper.HorizontalMapper padding
+  sprite = new Sprite result_sprite_dir, output_path, map, false
+  sprite.load (err) ->
+    sprite.write (err) ->
+      # fse.removeSync tmp_dir
+      if options.watch
+        bwatch.createMonitor "#{path}",
+          interval: 500,
+          (m) =>
+            m.on "created", =>
+              console?.log("created")
+              collectBlocks(path, tmp_dir)
+              sprite.load (err) => sprite.write (err) => console.log "blocks sprite recreated", err
+            m.on "changed", => 
+              console?.log("changed")
+              collectBlocks(path, tmp_dir)
+              sprite.load (err) => sprite.write (err) => console.log "blocks sprite recreated", err
+            m.on "removed", => 
+              console?.log("removed")
+              collectBlocks(path, tmp_dir)
+              sprite.load (err) => sprite.write  (err) => console.log "blocks sprite recreated", err
+      cb null, sprite
+
+collectBlocks = (path, tmp_dir) ->
   fse.removeSync tmp_dir
   fse.mkdirsSync tmp_dir, '755'
 
@@ -69,31 +95,7 @@ createBlocks = (options = {}, cb = ->) ->
       files = files.filter (file) -> file.match /\.(png|gif|jpg|jpeg)$/
       files.forEach (f) -> 
         fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{f}")
-
-  map = new mapper.HorizontalMapper padding
-  sprite = new Sprite result_sprite_dir, output_path, map, options.watch
-  sprite.load (err) ->
-    sprite.write (err) ->
-      # fse.removeSync tmp_dir
-      console?.log("sprite created")
-      if options.watch
-        bwatch.createMonitor "/home/paul/root/nsd.dev/public_html/public/img/block",
-          interval: 500,
-          # filter : (name) ->
-          #   (name.match /\.(png|gif|jpg|jpeg)$/ ? true : false)
-          (m) =>
-            opts = options
-            opts.watch = false
-            m.on "created", =>
-              console?.log("created")
-              createBlocks(opts)
-            m.on "changed", => 
-              console?.log("changed")
-              createBlocks(opts)
-            m.on "removed", => 
-              console?.log("removed")
-              createBlocks(opts)
-      cb null, sprite
+  
 
 stylus = (options = {}, cb = ->) ->
   stylus = require 'stylus'

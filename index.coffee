@@ -54,7 +54,7 @@ createBlocks = (options = {}, cb = ->) ->
   padding = options.padding || 2
   path = options.path || './public/img/block'
   output_path = options.output || './public/img/sprites'
-  
+  options.output = output_path
 
   result_sprite_dir = 'global_block_sprite'
   tmp_dir = output_path + "/" + result_sprite_dir
@@ -66,6 +66,7 @@ createBlocks = (options = {}, cb = ->) ->
   sprite.load (err) ->
     sprite.write (err) ->
       # fse.removeSync tmp_dir
+      stylus_helper = bstylus(options, sprite)
       if options.watch
         bwatch.createMonitor "#{path}",
           interval: 500,
@@ -73,17 +74,56 @@ createBlocks = (options = {}, cb = ->) ->
             m.on "created", =>
               console?.log("created")
               collectBlocks(path, tmp_dir)
-              sprite.load (err) => sprite.write (err) => console.log "blocks sprite recreated", err
+              sprite.load (err) => sprite.write (err) =>
+                console.log "blocks sprite recreated"
+                stylus_helper.emit "update"
             m.on "changed", => 
               console?.log("changed")
               collectBlocks(path, tmp_dir)
-              sprite.load (err) => sprite.write (err) => console.log "blocks sprite recreated", err
+              sprite.load (err) => sprite.write (err) =>
+                console.log "blocks sprite recreated"
+                stylus_helper.emit "update"
             m.on "removed", => 
               console?.log("removed")
               collectBlocks(path, tmp_dir)
-              sprite.load (err) => sprite.write  (err) => console.log "blocks sprite recreated", err
-      cb null, sprite
-  # stylusBlocks options, (err) => console.log "blocks stylus created"
+              sprite.load (err) => sprite.write  (err) =>
+                console.log "blocks sprite recreated"
+                stylus_helper.emit "update"
+      cb null, sprite, stylus_helper
+
+bstylus = (options, sprite) ->
+  stylus = require 'stylus'
+  nodes = stylus.nodes
+  retinaMatcher = new RegExp((options.retina || "-2x") + "$")
+  helper = new EventEmitter()
+  helper.fn = (name, image, dimensions) ->
+    name = name.string
+    image = image.string
+    dimensions = if dimensions then dimensions.val else true
+    throw new Error("missing sprite #{name}") if not sprite?
+    item = sprite.image image
+    throw new Error("missing image #{image} in sprite #{name}") if not item?
+
+    width = item.width
+    height = item.height
+    positionX = item.positionX * -1
+    positionY = item.positionY * -1
+
+    if name.match(retinaMatcher)
+      width = width / 2
+      height = height / 2
+      positionX = positionX / 2
+      positionY = positionY / 2
+
+    if dimensions
+      width = new nodes.Property ["width"], "#{width}px"
+      height = new nodes.Property ["height"], "#{height}px"
+      @closestBlock.nodes.splice @closestBlock.index+1, 0, width, height
+
+    httpUrl = (options.httpPath || options.output) + "/" + sprite.filename()
+
+    new nodes.Property ["background"], "url('#{httpUrl}') #{positionX}px #{positionY}px"
+  helper
 
 collectBlocks = (path, tmp_dir) ->
 
@@ -98,16 +138,6 @@ collectBlocks = (path, tmp_dir) ->
       ifiles = files.filter (file) -> file.match /\.(png|gif|jpg|jpeg)$/
       ifiles.forEach (f) -> 
         fse.copy("#{path}/#{topdir}/#{f}","#{tmp_dir}/#{topdir}_#{f}")
-
-stylusBlocks = (options = {}, cb = ->) =>
-  stylus = require 'stylus'
-
-  if typeof options is 'function'
-    cb = options
-    options = {}
-
-  stylus_path = options.stylus_path || './assets/block'
-
 
 stylus = (options = {}, cb = ->) ->
   stylus = require 'stylus'
